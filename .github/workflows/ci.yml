@@ -89,3 +89,14 @@ jobs:
 
       - name: Run pytest
         run: pytest -v
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [gitleaks, trufflehog, tests]
+    if: ${{ github.ref == 'refs/heads/main' }}    # only run on main
+    steps:
+      - name: Stub AWS deployment (no AWS account needed)
+        run: |
+          echo "Deployment step triggered (stub mode)"
+          echo "This is where ECS Fargate deployment would occur."
+          echo "No AWS credentials needed. No charges incurred."
+          echo "Pipeline continues successfully."
