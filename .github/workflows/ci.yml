@@ -16,9 +16,13 @@ jobs:
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
         with:
-          args: detect --source . --no-banner \
+          args: detect \
+                --source . \
+                --no-git \
+                --no-banner \
                 --report-path gitleaks-report.json \
-                --report-format json
+                --report-format json \
+                --config-path .gitleaks.toml
 
       - name: Upload Gitleaks report
         uses: actions/upload-artifact@v4

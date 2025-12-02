@@ -1,0 +1,11 @@
+title = "Humanis DevSecOps Gitleaks Config"
+
+[extend]
+paths = [
+    "venv",
+    ".venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".git",
+    ".github"
+]
