@@ -1,4 +1,4 @@
-name: CI - Tests + Bandit
+name: CI - Secrets Scan + Security + Tests
 
 on:
   push:
@@ -12,21 +12,52 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
         with:
           args: detect --source . --no-banner \
                 --report-path gitleaks-report.json \
                 --report-format json
+
       - name: Upload Gitleaks report
         uses: actions/upload-artifact@v4
         with:
           name: gitleaks-report
           path: gitleaks-report.json
+  trufflehog:
+    runs-on: ubuntu-latest
+    needs: gitleaks   # Run after Gitleaks
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
+      - name: Install TruffleHog
+        run: pip install trufflehog
+
+      - name: Run TruffleHog
+        run: |
+          trufflehog git file://. --json > trufflehog-report.json || true
+
+      - name: Fail if TruffleHog detected secrets
+        run: |
+          if [ -s trufflehog-report.json ]; then
+            echo "TruffleHog found secrets!"
+            cat trufflehog-report.json
+            exit 1
+          else
+            echo "No secrets found by TruffleHog"
+          fi
+
+      - name: Upload TruffleHog Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: trufflehog-report
+          path: trufflehog-report.json
   tests:
     runs-on: ubuntu-latest
-    needs: gitleaks
+    needs: [gitleaks, trufflehog]
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -42,7 +73,7 @@ jobs:
           pip install -r requirements.txt
           pip install bandit
 
-      - name: Run Bandit Security Scan
+      - name: Run Bandit Security Scan (warn only)
         run: |
           bandit -r app -f json -o bandit-report.json || true
 
