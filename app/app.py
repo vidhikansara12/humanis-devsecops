@@ -7,15 +7,21 @@ from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
 ITEMS = {}
 NEXT_ID = 1
 
-# Prometheus metrics
-REQUEST_COUNT = Counter(
-    "flask_app_requests_total",
-    "Total HTTP requests",
-    ["method", "endpoint", "http_status"],
-)
+# Prometheus metrics (lazily initialized)
+REQUEST_COUNT = None
 
 
 def create_app():
+    global REQUEST_COUNT
+
+    # Initialize the Counter only once per process
+    if REQUEST_COUNT is None:
+        REQUEST_COUNT = Counter(
+            "flask_app_requests_total",
+            "Total HTTP requests",
+            ["method", "endpoint", "http_status"],
+        )
+
     app = Flask(__name__)
 
     def track_request(endpoint_name):
@@ -25,7 +31,9 @@ def create_app():
             def wrapper(*args, **kwargs):
                 response = func(*args, **kwargs)
                 status_code = response[1] if isinstance(response, tuple) else 200
-                REQUEST_COUNT.labels(request.method, endpoint_name, status_code).inc()
+                REQUEST_COUNT.labels(
+                    request.method, endpoint_name, status_code
+                ).inc()
                 return response
             return wrapper
         return decorator

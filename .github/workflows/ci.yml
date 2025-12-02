@@ -7,6 +7,7 @@ on:
     branches: ["main"]
 
 jobs:
+
   gitleaks:
     runs-on: ubuntu-latest
     steps:
@@ -29,15 +30,17 @@ jobs:
         with:
           name: gitleaks-report
           path: gitleaks-report.json
+
+
   trufflehog:
     runs-on: ubuntu-latest
-    needs: gitleaks   # Run after Gitleaks
+    needs: gitleaks
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install TruffleHog
-        run: pip install trufflehog
+      - name: Install dependencies
+        run: pip install trufflehog jq
 
       - name: Run TruffleHog
         run: |
@@ -58,9 +61,54 @@ jobs:
         with:
           name: trufflehog-report
           path: trufflehog-report.json
-  tests:
+
+
+  push_metrics:
     runs-on: ubuntu-latest
     needs: [gitleaks, trufflehog]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install jq and curl
+        run: sudo apt-get update && sudo apt-get install -y jq curl
+
+      # Count Gitleaks Findings
+      - name: Count Gitleaks Findings
+        id: gitleaks_count
+        run: |
+          if [ -f gitleaks-report.json ]; then
+            COUNT=$(jq '.findings | length' gitleaks-report.json)
+          else
+            COUNT=0
+          fi
+          echo "gitleaks_count=$COUNT" >> $GITHUB_OUTPUT
+
+      # Count TruffleHog Findings
+      - name: Count TruffleHog Findings
+        id: trufflehog_count
+        run: |
+          if [ -s trufflehog-report.json ]; then
+            COUNT=$(jq 'length' trufflehog-report.json)
+          else
+            COUNT=0
+          fi
+          echo "trufflehog_count=$COUNT" >> $GITHUB_OUTPUT
+
+      # Push metrics to Pushgateway
+      - name: Push Security Metrics to Pushgateway
+        run: |
+          cat <<EOF | curl --data-binary @- http://172.23.32.1:9091/metrics/job/ci_pipeline
+          gitleaks_secrets_found ${ { steps.gitleaks_count.outputs.gitleaks_count } }
+          trufflehog_secrets_found ${ { steps.trufflehog_count.outputs.trufflehog_count } }
+          pipeline_status 1
+          EOF
+
+
+  tests:
+    runs-on: ubuntu-latest
+    needs: [gitleaks, trufflehog, push_metrics]
 
     steps:
       - name: Checkout code
@@ -75,7 +123,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install bandit
+          pip install bandit pytest
 
       - name: Run Bandit Security Scan (warn only)
         run: |
@@ -89,14 +137,16 @@ jobs:
 
       - name: Run pytest
         run: pytest -v
+
+
   deploy:
     runs-on: ubuntu-latest
-    needs: [gitleaks, trufflehog, tests]
-    if: ${{ github.ref == 'refs/heads/main' }}    # only run on main
+    needs: [gitleaks, trufflehog, push_metrics, tests]
+    if: ${{ github.ref == 'refs/heads/main' }}
+
     steps:
-      - name: Stub AWS deployment (no AWS account needed)
+      - name: Stub AWS deployment (no cost)
         run: |
-          echo "Deployment step triggered (stub mode)"
-          echo "This is where ECS Fargate deployment would occur."
-          echo "No AWS credentials needed. No charges incurred."
-          echo "Pipeline continues successfully."
+          echo "Deployment stub triggered."
+          echo "This is where ECS Fargate deploy would happen."
+          echo "No AWS account needed — safe for student use."
