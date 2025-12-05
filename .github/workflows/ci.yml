@@ -13,17 +13,19 @@ env:
 jobs:
   gitleaks:
     runs-on: ubuntu-latest
-    continue-on-error: true  # ACT often fails due to missing artifacts runtime
+    continue-on-error: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Gitleaks
+      - name: Install Gitleaks (ACT-safe)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget
-          wget -q -O gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz
-          tar -xzf gitleaks.tar.gz
+          curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest \
+            | grep browser_download_url \
+            | grep linux_x64.tar.gz \
+            | cut -d '"' -f 4 \
+            | wget -qi -
+          tar -xzf gitleaks_*_linux_x64.tar.gz
           sudo mv gitleaks /usr/local/bin/gitleaks
           gitleaks version || true
 
@@ -45,28 +47,20 @@ jobs:
   trufflehog:
     runs-on: ubuntu-latest
     continue-on-error: true
-    # ACT cannot handle job dependencies, so removed during ACT testing
-    # GitHub version should re-enable:
-    # needs: gitleaks
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Python + pip
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3 python3-pip
+      - name: Run TruffleHog (ACT Safe)
+        uses: trufflesecurity/trufflehog@v3.54.0
+        with:
+          path: .
+          args: --json
 
-      - name: Install TruffleHog (pip version - ACT safe)
+      - name: Ensure report exists (ACT quirk fix)
         run: |
-          python3 -m pip install --upgrade pip
-          pip3 install trufflehog || true
-          trufflehog --version || true
-
-      - name: Run TruffleHog filesystem scan
-        run: |
-          trufflehog filesystem --json . > trufflehog-report.json 2>/dev/null || true
-          test -f trufflehog-report.json || echo "[]" > trufflehog-report.json
+          test -f trufflehog-results.json || echo "[]" > trufflehog-results.json
+          mv trufflehog-results.json trufflehog-report.json
 
       - name: Upload TruffleHog Report
         if: ${{ env.ACT != 'true' }}
