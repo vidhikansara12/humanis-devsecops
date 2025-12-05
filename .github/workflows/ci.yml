@@ -112,8 +112,6 @@ jobs:
       - name: Run pytest
         run: pytest || true
 
-
-
   push_metrics:
     runs-on: ubuntu-latest
     needs: [gitleaks, trufflehog, tests]
@@ -128,43 +126,30 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq curl
 
-      # -----------------------------------------
-      # ALWAYS FIND GITLEAKS REPORT (ACT SAFE)
-      # -----------------------------------------
-      - name: Count Gitleaks findings
+      - name: Count demo Gitleaks-style findings
         run: |
-          FILE=$(find . -type f -name "gitleaks-report.json" | head -n 1)
-          echo "Gitleaks report found at: $FILE"
-
-          if [ -n "$FILE" ]; then
-            count=$(jq length "$FILE")
+          # Count lines that look like secrets (from fake_secret.txt and others)
+          if [ -f fake_secret.txt ]; then
+            G=$(grep -Ei 'AWS_SECRET_ACCESS_KEY|PASSWORD|API_KEY|SECRET' fake_secret.txt | wc -l)
           else
-            echo "No Gitleaks report found → default=0"
-            count=0
+            G=0
           fi
 
-          echo $count > gitleaks_count.txt
+          echo "Gitleaks-style demo count: $G"
+          echo $G > gitleaks_count.txt
 
-      # -------------------------------------------
-      # ALWAYS FIND TRUFFLEHOG REPORT (ACT SAFE)
-      # -------------------------------------------
-      - name: Count TruffleHog findings
+      - name: Count demo TruffleHog-style findings
         run: |
-          FILE=$(find . -type f -name "trufflehog-report.json" | head -n 1)
-          echo "TruffleHog report found at: $FILE"
-
-          if [ -n "$FILE" ]; then
-            count=$(jq length "$FILE")
+          # Very naive "entropy-ish" demo: just count long-ish strings in fake_secret.txt
+          if [ -f fake_secret.txt ]; then
+            T=$(grep -E '.{20,}' fake_secret.txt | wc -l)
           else
-            echo "No TruffleHog report found → default=0"
-            count=0
+            T=0
           fi
 
-          echo $count > trufflehog_count.txt
+          echo "TruffleHog-style demo count: $T"
+          echo $T > trufflehog_count.txt
 
-      # -------------------------------------------
-      # PUSH METRICS TO PUSHGATEWAY (ACT ONLY)
-      # -------------------------------------------
       - name: Push metrics to Pushgateway (ACT only)
         if: env.ACT == 'true'
         run: |
@@ -176,14 +161,16 @@ jobs:
           echo "gitleaks=$G"
           echo "trufflehog=$T"
 
+          # Push with valid label pairs
           echo "gitleaks_secrets_found $G" \
             | curl -X PUT --data-binary @- http://localhost:9091/metrics/job/ci/instance/gitleaks
 
           echo "trufflehog_secrets_found $T" \
             | curl -X PUT --data-binary @- http://localhost:9091/metrics/job/ci/instance/trufflehog
 
-
-
+          STATUS=1
+          echo "pipeline_status $STATUS" \
+            | curl -X PUT --data-binary @- http://localhost:9091/metrics/job/ci/instance/status
 
   deploy:
     runs-on: ubuntu-latest

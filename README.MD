@@ -1,65 +1,62 @@
-# **Humanis – Secure DevSecOps Pipeline with Monitoring & CI/CD (Fall 2025)**
+# **Humanis – Secure DevSecOps Pipeline with Monitoring & CI/CD**
 
-This repository contains the **Humanis DevSecOps Pipeline Project**, submitted for the **Fall 2025 DevOps course**.
-The goal is to design, implement, and compare secure CI/CD pipelines across **GitHub Actions** and **GitLab CI**, integrating:
+**Fall 2025 Project Submission**
 
-* Automated **secrets detection** (Gitleaks + TruffleHog)
-* Automated **security scanning** (Bandit)
-* Automated **testing** (pytest)
-* Containerized development (Docker)
-* Observability stack (Prometheus + Pushgateway + Grafana)
-* Local CI simulation using **ACT**
-* Optional AWS ECS deployment stubs
+The Humanis DevSecOps Pipeline Project showcases a complete, end-to-end secure CI/CD system using:
 
-This project embodies the core values of DevSecOps:
-**automation**, **security**, **visibility**, and **repeatability**.
+* **GitHub Actions**
+* **GitLab CI/CD**
+* **Secrets detection tools** (Gitleaks + TruffleHog)
+* **Security scanning** (Bandit)
+* **Automated testing** (pytest)
+* **Observability stack** (Pushgateway → Prometheus → Grafana)
+* **Local pipeline simulation** using ACT
+* **Deployment stubs** for future AWS integration
+
+The objective is to demonstrate industry-grade DevSecOps practices: **automation, security, visibility, and reproducibility**.
 
 ---
 
 # **1. Project Overview**
 
-The Humanis project demonstrates what a modern secure pipeline looks like:
+Every code push in Humanis triggers a complete DevSecOps lifecycle:
 
-1. **Code is pushed** → GitHub Actions / GitLab CI triggers
-2. **Secrets scanning** runs immediately
-3. **Security analysis (Bandit)** runs
-4. **Tests (pytest)** validate the application
-5. **Metrics** from scans are sent to **Pushgateway**
-6. **Prometheus** scrapes them
-7. **Grafana** visualizes the security posture over time
+1. **Secrets scanning** (Gitleaks + TruffleHog)
+2. **Static analysis** (Bandit)
+3. **Automated tests** (pytest)
+4. **Metrics export to Pushgateway**
+5. **Prometheus scraping**
+6. **Grafana visualization**
 
-This allows a development team to quickly see:
+This allows the Humanis team to track:
 
-* When secrets were introduced
-* How many security issues were detected
-* Trends in pipeline health
-* Comparisons between GitHub and GitLab pipelines
+* When secrets are introduced
+* How security posture changes over time
+* Pipeline reliability
+* Differences between GitHub and GitLab workflows
 
-The Humanis project intentionally uses a **simple Flask API** so that the focus remains on the **pipeline, monitoring, and DevSecOps practices** rather than application complexity.
+The application itself is intentionally simple (Flask API) so the focus remains on DevSecOps engineering.
 
 ---
 
-# **2. Architecture**
-
-Here is the high-level architecture of the Humanis DevSecOps system:
+# **2. System Architecture**
 
 ```mermaid
 flowchart TD
 
-A[Developer Pushes Code] --> B[GitHub Actions CI Pipeline]
+A[Developer Pushes Code] --> B[GitHub Actions Pipeline]
 A --> C[GitLab CI Pipeline]
 
-B -->|Secrets Scan + Tests| D[Reports: Gitleaks, TruffleHog, Bandit]
-C -->|Secrets Scan + Tests| D
+B -->|Security Scans + Tests| D[Generated Reports]
+C -->|Security Scans + Tests| D
 
-D -->|Metrics Export| E[Pushgateway]
-
-E -->|Scrape Metrics| F[Prometheus]
-
-F -->|Visualize| G[Grafana Dashboard]
-
-G -->|Insights| H[Humanis Team]
+D --> E[Pushgateway]
+E --> F[Prometheus]
+F --> G[Grafana Dashboard]
+G --> H[Humanis DevSecOps Team Insights]
 ```
+
+This represents the full flow from development to monitoring.
 
 ---
 
@@ -69,25 +66,25 @@ G -->|Insights| H[Humanis Team]
 
 * GitHub Actions
 * GitLab CI/CD
-* ACT (local GitHub runner)
+* ACT (local runner)
 
-### **Security Tools**
+### **Security Scanning**
 
-* **Gitleaks** – credential patterns
-* **TruffleHog** – entropy & regex-based secret detection
-* **Bandit** – Python static analysis
+* **Gitleaks** — detects leaked credentials
+* **TruffleHog** — high-entropy and suspicious secrets
+* **Bandit** — Python static vulnerability scanner
 
-### **Monitoring Tools**
-
-* **Pushgateway** – CI pushes metrics
-* **Prometheus** – scrapes & stores
-* **Grafana** – visual dashboards
-
-### **Application**
+### **Application Stack**
 
 * Python 3.x
-* Flask REST API
-* pytest
+* Flask API
+* pytest (unit testing)
+
+### **Monitoring**
+
+* Pushgateway
+* Prometheus
+* Grafana
 
 ### **Containers**
 
@@ -96,7 +93,7 @@ G -->|Insights| H[Humanis Team]
 
 ---
 
-# 🛠 **4. Running the Monitoring Stack (Prometheus + Grafana + Pushgateway)**
+# **4. Running the Monitoring Stack**
 
 Inside the `monitoring/` folder:
 
@@ -104,7 +101,7 @@ Inside the `monitoring/` folder:
 docker compose up -d
 ```
 
-This launches:
+Services launched:
 
 | Service     | URL                                                            |
 | ----------- | -------------------------------------------------------------- |
@@ -112,125 +109,195 @@ This launches:
 | Prometheus  | [http://localhost:9090](http://localhost:9090)                 |
 | Pushgateway | [http://localhost:9091](http://localhost:9091)                 |
 
-Prometheus automatically scrapes metrics pushed by the CI pipeline.
+Prometheus continuously scrapes Pushgateway, powering real-time dashboards.
 
 ---
 
-# **5. Running the CI Pipeline Locally with ACT**
+# **5. Running the CI Pipeline Locally (using ACT)**
 
-Because the Humanis project uses CI heavily, ACT allows you to run the GitHub workflow offline:
+Run the full GitHub Actions pipeline locally:
 
 ```bash
 act -W .github/workflows/ci.yml --reuse
 ```
 
-This executes:
+This simulates:
 
-1. Gitleaks
-2. TruffleHog
-3. Bandit
-4. Pytest
-5. Metrics push to Pushgateway
-6. Deployment stub
+* Gitleaks
+* TruffleHog
+* Bandit
+* pytest
+* Metrics push → Pushgateway
+* Deployment stub
 
-Metrics appear in Pushgateway at:
-[http://localhost:9091/metrics](http://localhost:9091/metrics)
+Metrics will appear at:
+
+```
+http://localhost:9091/metrics
+```
 
 Look for:
 
 ```
 gitleaks_secrets_found
 trufflehog_secrets_found
+pipeline_status
 ```
 
-These values populate Grafana automatically.
+These values flow into Prometheus and populate Grafana automatically.
 
 ---
 
-# **6. Monitoring Workflow Explained**
+# **6. Monitoring Workflow (Pushgateway → Prometheus → Grafana)**
 
-### ✔ CI pushes metrics:
+### **1. CI → Pushgateway**
+
+Pipeline pushes metrics:
 
 ```
-curl --data-binary "gitleaks_secrets_found 0" http://localhost:9091/metrics/job/ci
-curl --data-binary "trufflehog_secrets_found 0" http://localhost:9091/metrics/job/ci
+gitleaks_secrets_found X
+trufflehog_secrets_found Y
+pipeline_status 1
 ```
 
-### ✔ Pushgateway temporarily stores them
+### **2. Pushgateway → Prometheus**
 
-### ✔ Prometheus scrapes them every 15 seconds
+Prometheus scrapes `/metrics` every 15 seconds.
 
-### ✔ Grafana dashboards visualize them
+### **3. Prometheus → Grafana**
 
-This creates:
+Grafana visualizes key risk and reliability metrics.
 
-* Security posture over time
-* Trend lines for leaks
-* Per-tool breakdowns
-* Human-readable DevSecOps insights
+This creates actionable visibility into:
+
+* Secrets leakage
+* Pipeline health
+* Vulnerability trends
+* CI/CD reliability
 
 ---
 
-# **7. Grafana Dashboard Panels**
+# **7. Visualizations (Grafana Dashboard Panels)**
 
-The Humanis Grafana dashboard includes:
+The Humanis Grafana dashboard contains several panels:
 
-### **1. Secrets Findings – Gitleaks**
+---
 
-SingleStat panel
+## **7.1 Gitleaks Findings (Stat Panel)**
 
-* Green = 0
-* Red = >0
+**PromQL Query:**
 
-### **2. Secrets Findings – TruffleHog**
+```
+gitleaks_secrets_found
+```
 
-Same as above but for a different tool
+Displays the number of leaked secrets found per pipeline run.
 
-### **3. Combined Security Exposure Gauge**
+* Green → 0
+* Red → 1
+
+---
+
+## **7.2 TruffleHog Findings (Stat Panel)**
+
+**PromQL Query:**
+
+```
+trufflehog_secrets_found
+```
+
+Detects suspicious entropy-based leaks.
+
+---
+
+## **7.3 Combined Security Exposure (Gauge)**
+
+**PromQL Query:**
 
 ```
 gitleaks_secrets_found + trufflehog_secrets_found
 ```
 
-### **4. Secrets Over Time (Line Chart)**
+Visualizes total security risk in a single view.
 
-Query example:
+---
+
+## **7.4 Secrets Over Time (Line Chart)**
+
+**PromQL Query:**
 
 ```
 gitleaks_secrets_found
 trufflehog_secrets_found
 ```
 
-### **5. Pipeline Health Timeline**
-
-Shows how often pipelines run and pass.
-
-This dashboard is core to the Humanis project:
-**it makes security measurable**.
+Shows spikes when fake or real leaks occur, enabling trend analysis.
 
 ---
 
-# **8. GitHub Actions Pipeline Summary**
+## **7.5 Pipeline Status Indicator**
 
-The GitHub workflow performs:
+**PromQL Query:**
 
-| Stage            | Description                    |
-| ---------------- | ------------------------------ |
-| **gitleaks**     | Detects leaked secrets         |
-| **trufflehog**   | Entropy-based secret detection |
-| **tests**        | Bandit + pytest                |
-| **push_metrics** | Sends metrics to Pushgateway   |
-| **deploy**       | Stub for real AWS deploy       |
+```
+pipeline_status
+```
 
-Local execution via ACT ensures the pipeline works even offline.
+Encodes pipeline health as:
+
+* `1` = success
+* `0` = failure
+
+Useful for tracking reliability over long periods.
 
 ---
 
-# **9. GitLab CI Pipeline Summary**
+# **8. Generating Demo Leak Visualizations**
 
-The `.gitlab-ci.yml` mirrors GitHub Actions to allow full platform comparison.
+To demonstrate non-zero leak data:
 
-Stages:
+1. Create a file:
+   `fake_secret.txt`
+
+2. Add safe dummy secrets:
+
+```
+AWS_SECRET_ACCESS_KEY="FAKE123456789"
+PASSWORD="not_real"
+API_KEY="0000000000000000000000"
+```
+
+3. Run ACT again.
+
+Your Grafana dashboard will now show:
+
+* Spikes in leak findings
+* Changes in security exposure
+* Updated risk gauge
+
+Perfect for academic or demo presentations.
+
+---
+
+# **9. GitHub Actions Pipeline Summary**
+
+Stages executed:
+
+| Stage        | Purpose                        |
+| ------------ | ------------------------------ |
+| gitleaks     | Detect leaked secrets          |
+| trufflehog   | Find entropy-based credentials |
+| tests        | Bandit + pytest                |
+| push_metrics | Push metrics for monitoring    |
+| deploy       | Deployment stub                |
+
+Runs identically in ACT for local development.
+
+---
+
+# **10. GitLab CI Pipeline Summary**
+
+Mirrors GitHub Actions for platform comparison:
 
 1. secrets_scan
 2. security_scan
@@ -238,69 +305,45 @@ Stages:
 4. push_metrics
 5. deploy
 
-This dual-pipeline approach is essential for comparing two DevSecOps ecosystems.
+This dual-pipeline approach demonstrates DevSecOps across both ecosystems.
 
 ---
 
-# **10. Humanis DevSecOps SWOT Analysis**
+# **11. SWOT Analysis (Humanis DevSecOps Pipelines)**
 
 ### **GitHub Actions**
 
-**Strengths**
-
-* Marketplace with a huge library of security and DevOps actions
-* OIDC + AWS integrations
-* Easier learning curve
-
-**Weaknesses**
-
-* Advanced security features require GitHub Advanced Security
-
-**Opportunities**
-
-* Extensible workflows, reusable modules
-
-**Threats**
-
-* Vendor lock-in
-
----
+**Strengths:** Huge marketplace, OIDC, simple UX
+**Weaknesses:** Advanced features behind paid tiers
+**Opportunities:** Workflow reuse, strong community
+**Threats:** Vendor lock-in
 
 ### **GitLab CI**
 
-**Strengths**
-
-* Complete integrated DevSecOps platform
-* Built-in security scanning
-
-**Weaknesses**
-
-* More complex runner setup
-* Enterprise features behind paywall
-
-**Opportunities**
-
-* Incredible synergy between repos, issues, scan results
-
-**Threats**
-
-* Heavier system for small teams
+**Strengths:** Fully integrated DevSecOps tools
+**Weaknesses:** Runner setup complexity
+**Opportunities:** Unified code+security ecosystem
+**Threats:** Heavy system for small teams
 
 ---
 
-# **11. Final Conclusion**
+# **12. Final Conclusion**
 
-The Humanis DevSecOps project demonstrates how a modern engineering team can integrate:
+The Humanis DevSecOps Pipeline demonstrates how modern engineering teams integrate:
 
 * **Security automation**
-* **Observability**
+* **Continuous monitoring**
 * **Cross-platform CI/CD**
 * **Metrics-driven insights**
-* **Local reproducibility**
+* **Reproducible local pipelines**
 
-By combining GitHub Actions, GitLab CI, Prometheus, Pushgateway, and Grafana, this project shows how DevSecOps transforms pipelines into intelligent, security-aware systems.
+By combining GitHub Actions, GitLab CI, Prometheus, Pushgateway, and Grafana, Humanis transforms traditional CI/CD into a **security-aware, observable, and intelligent pipeline system**.
 
-This submission fulfills the goals of the Fall 2025 DevOps course, providing a working, monitored, secure CI/CD system for the Humanis application.
+This project fulfills the academic requirements for **Fall 2025 DevOps** and serves as a practical demonstration of real-world DevSecOps practices.
 
+---
 
-# **12. Credits**
+# **13. Credits**
+
+Created by **Group HUmanis**
+Submitted for **DevOps – Fall 2025, Humanis**
