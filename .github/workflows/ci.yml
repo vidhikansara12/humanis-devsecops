@@ -7,61 +7,67 @@ on:
     branches: ["main"]
 
 jobs:
-
   gitleaks:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        with:
-          args: detect \
-                --source . \
-                --no-git \
-                --no-banner \
-                --report-path gitleaks-report.json \
-                --report-format json \
-                --config-path .gitleaks.toml
+      - name: Install Gitleaks
+        run: |
+          GL_URL=$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest \
+            | grep "browser_download_url" \
+            | grep "linux_x64.tar.gz" \
+            | cut -d '"' -f 4)
+          curl -sSL $GL_URL -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz
+          sudo mv gitleaks /usr/local/bin/
 
-      - name: Upload Gitleaks report
+      - name: Run Gitleaks Scan
+        run: |
+          gitleaks detect \
+            --source . \
+            --no-git \
+            --report-path gitleaks-report.json \
+            --report-format json
+
+      - name: Upload Gitleaks Report
         uses: actions/upload-artifact@v4
         with:
           name: gitleaks-report
           path: gitleaks-report.json
 
-
   trufflehog:
     runs-on: ubuntu-latest
     needs: gitleaks
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install TruffleHog
         run: pip install trufflehog jq
 
       - name: Run TruffleHog
         run: |
           trufflehog git file://. --json > trufflehog-report.json || true
 
-      - name: Fail if TruffleHog detected secrets
+      - name: Fail if TruffleHog detected any secrets
         run: |
           if [ -s trufflehog-report.json ]; then
-            echo "TruffleHog found secrets!"
+            echo "TruffleHog found secrets:"
             cat trufflehog-report.json
             exit 1
           else
             echo "No secrets found by TruffleHog"
           fi
 
-      - name: Upload TruffleHog Report
+      - name: Upload TruffleHog report
         uses: actions/upload-artifact@v4
         with:
           name: trufflehog-report
           path: trufflehog-report.json
-
 
   push_metrics:
     runs-on: ubuntu-latest
@@ -71,63 +77,61 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install jq and curl
+      - name: Install jq & curl
         run: sudo apt-get update && sudo apt-get install -y jq curl
 
       # Count Gitleaks Findings
-      - name: Count Gitleaks Findings
-        id: gitleaks_count
+      - name: Count Gitleaks findings
+        id: leaks_count
         run: |
           if [ -f gitleaks-report.json ]; then
             COUNT=$(jq '.findings | length' gitleaks-report.json)
           else
             COUNT=0
           fi
-          echo "gitleaks_count=$COUNT" >> $GITHUB_OUTPUT
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
 
       # Count TruffleHog Findings
-      - name: Count TruffleHog Findings
-        id: trufflehog_count
+      - name: Count TruffleHog findings
+        id: hog_count
         run: |
           if [ -s trufflehog-report.json ]; then
             COUNT=$(jq 'length' trufflehog-report.json)
           else
             COUNT=0
           fi
-          echo "trufflehog_count=$COUNT" >> $GITHUB_OUTPUT
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
 
-      # Push metrics to Pushgateway
-      - name: Push Security Metrics to Pushgateway
+      # Push Metrics to Pushgateway
+      - name: Push metrics to Pushgateway
         run: |
-          cat <<EOF | curl --data-binary @- http://172.23.32.1:9091/metrics/job/ci_pipeline
-          gitleaks_secrets_found ${ { steps.gitleaks_count.outputs.gitleaks_count } }
-          trufflehog_secrets_found ${ { steps.trufflehog_count.outputs.trufflehog_count } }
+          cat <<EOF | curl --data-binary @- http://host.docker.internal:9091/metrics/job/ci_pipeline
+          gitleaks_secrets_found ${ { steps.leaks_count.outputs.count } }
+          trufflehog_secrets_found ${ { steps.hog_count.outputs.count } }
           pipeline_status 1
           EOF
 
-
   tests:
     runs-on: ubuntu-latest
-    needs: [gitleaks, trufflehog, push_metrics]
+    needs: [push_metrics]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install bandit pytest
+          pip install pytest bandit
 
-      - name: Run Bandit Security Scan (warn only)
-        run: |
-          bandit -r app -f json -o bandit-report.json || true
+      - name: Bandit Security Scan (warn only)
+        run: bandit -r app -f json -o bandit-report.json || true
 
       - name: Upload Bandit Report
         uses: actions/upload-artifact@v4
@@ -141,12 +145,13 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    needs: [gitleaks, trufflehog, push_metrics, tests]
+    needs: [tests]
+
     if: ${{ github.ref == 'refs/heads/main' }}
 
     steps:
-      - name: Stub AWS deployment (no cost)
+      - name: Stub Deployment 
         run: |
-          echo "Deployment stub triggered."
-          echo "This is where ECS Fargate deploy would happen."
-          echo "No AWS account needed — safe for student use."
+          echo "Deployment stage triggered."
+          echo "This is where ECS Fargate deployment would run."
+          echo "No AWS account required for student project."
