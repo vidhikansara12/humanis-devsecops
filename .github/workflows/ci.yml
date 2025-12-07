@@ -8,7 +8,7 @@ on:
 
 # ACT=true allows Pushgateway behavior locally
 env:
-  ACT: true
+  ACT=true act -W .github/workflows/ci.yml --reuse
 
 
 jobs:
